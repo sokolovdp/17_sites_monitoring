@@ -16,7 +16,7 @@ TEMPORARY_FILE = "temp_domain_info.txt"
 
 def load_urls4check(path: str) -> list:
     with open(path, mode='r') as urls_file:
-        url_lines = [name.strip() for name in urls_file.readlines()]
+        url_lines = [url.strip() for url in urls_file.readlines()]
     return url_lines
 
 
@@ -32,8 +32,8 @@ def is_server_responding_with_ok(url: str) ->bool:
 
 def get_domain_expiration_date(domain_name: str) -> list:
     shell_command_line = 'whois.exe -nobanner {} > {}'.format(domain_name, TEMPORARY_FILE)
-    result = subprocess.run(shell_command_line, shell=True)
-    if result.returncode == 0:
+    run_result = subprocess.run(shell_command_line, shell=True)
+    if run_result.returncode == 0:
         with open(TEMPORARY_FILE, mode='r') as temp_file:
             lines = [line.strip() for line in temp_file.readlines()]
         date_line = [line for line in lines if "Registry Expiry Date:" in line]

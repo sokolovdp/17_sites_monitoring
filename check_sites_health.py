@@ -4,46 +4,49 @@ import subprocess
 import os
 
 
-MAX_RESPONSE_TIMEOUT = 7  # max response timeout to get answer from site
-user_agent = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/59.0.3071.104 Safari/537.36"}
-temp_file = "temp_domain_info.txt"
+MAX_RESPONSE_TIMEOUT = 7
+HEADERS = {"USER-AGENT": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                         "Chrome/59.0.3071.115 Safari/537.36",
+           "ACCEPT": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+           "CONNECTION": "keep-alive",
+           "ACCEPT_ENCODING": "gzip, deflate, br",
+           "ACCEPT_LANGUAGE": "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4"}
+TEMPORARY_FILE = "temp_domain_info.txt"
 
 
-def load_urls4check(path: "str file name") -> "list of urls":
-    with open(path, mode='r') as f:
-        lines = [name.strip() for name in f.readlines()]
-    return lines
+def load_urls4check(path: str) -> list:
+    with open(path, mode='r') as urls_file:
+        url_lines = [name.strip() for name in urls_file.readlines()]
+    return url_lines
 
 
-def is_server_respond_with_200(url: "str url") -> "bool":
+def is_server_responding_with_ok(url: str) ->bool:
     try:
-        response = requests.get("http://"+url, headers=user_agent, timeout=MAX_RESPONSE_TIMEOUT)
-        if response.ok:  # response.status_code == 200
-            return True
-        else:
-            return False
-    except requests.exceptions.Timeout:
+        response = requests.get("http://"+url, headers=HEADERS, timeout=MAX_RESPONSE_TIMEOUT)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
         return False
+    else:
+        return True
 
 
-def get_domain_expiration_date(domain_name: "str") -> "list":
-    command_line = 'whois.exe -nobanner {} > {}'.format(domain_name, temp_file)
-    result = subprocess.run(command_line, shell=True)
-    if result.returncode == 0:   # no errors
-        with open(temp_file, mode='r') as f:
-            lines = [line.strip() for line in f.readlines()]
+def get_domain_expiration_date(domain_name: str) -> list:
+    shell_command_line = 'whois.exe -nobanner {} > {}'.format(domain_name, TEMPORARY_FILE)
+    result = subprocess.run(shell_command_line, shell=True)
+    if result.returncode == 0:
+        with open(TEMPORARY_FILE, mode='r') as temp_file:
+            lines = [line.strip() for line in temp_file.readlines()]
         date_line = [line for line in lines if "Registry Expiry Date:" in line]
-        os.remove(temp_file)
+        os.remove(TEMPORARY_FILE)
         return date_line
 
 
-def main(urls_list: "list"):
+def main(urls_list: list):
     for url in urls_list:
-        if is_server_respond_with_200(url):
-            print("site {} is alive,".format(url), end=" ")
+        if is_server_responding_with_ok(url):
+            print("domain {} is alive,".format(url), end=" ")
         else:
-            print("site {} is dead ".format(url), end=" ")
+            print("domain {} is not active ".format(url), end=" ")
         expiry_date = get_domain_expiration_date(url)
         if expiry_date:
             print(expiry_date[0])
@@ -51,5 +54,7 @@ def main(urls_list: "list"):
             print("Registry Expiry Date: NOT FOUND")
 
 if __name__ == '__main__':
-    urls = load_urls4check(sys.argv[1:][0])
-    main(urls)
+    if not os.path.exists(sys.argv[1]):
+        print("invalid file path {}".format(sys.argv[1]))
+    else:
+        main(load_urls4check(sys.argv[1]))

@@ -7,7 +7,7 @@ you can download it from [PyPi](https://pypi.python.org/pypi/python-whois/0.6.5)
 
 
 # Sample usage and output
-*python check_sites_health.py sites_url.txt*
+*python check_sites_health.py  --urls=sites_url.txt*
 ```
 site sokolovdp.info is alive, expiry date is 2018-03-21 17:14:03 
 site sokolovdp.github.io is alive, expiry date is unknown

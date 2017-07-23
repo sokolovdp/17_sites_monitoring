@@ -1,5 +1,5 @@
 import sys
-import os
+import argparse
 
 import requests
 from whois import whois
@@ -11,20 +11,26 @@ HEADERS = {"USER-AGENT": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
            "CONNECTION": "keep-alive",
            "ACCEPT_ENCODING": "gzip, deflate, br",
            "ACCEPT_LANGUAGE": "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4"}
-TEMPORARY_FILE = "temp_domain_info.txt"
 
 
 def load_urls4check(path: str) -> list:
-    with open(path, mode='r') as urls_file:
-        url_lines = [url.strip() for url in urls_file.readlines()]
-    return url_lines
-
-
-def is_server_responding_with_ok(url: str) -> bool:
     try:
-        return requests.get("http://" + url, headers=HEADERS, timeout=MAX_RESPONSE_TIMEOUT).ok
+        with open(path, mode='r') as urls_file:
+            url_lines = [url.strip() for url in urls_file.readlines()]
+        return url_lines
+    except IOError:
+        raise argparse.ArgumentTypeError("invalid file path {}".format(path))
+
+
+def is_server_responding_with_ok(http_url: str) -> bool:
+    try:
+        return requests.get(http_url, headers=HEADERS, timeout=MAX_RESPONSE_TIMEOUT).ok
     except requests.exceptions.RequestException:
         return False
+
+
+def is_url_alive(url: str) -> bool:
+    return is_server_responding_with_ok("http://" + url) or is_server_responding_with_ok("https://" + url)
 
 
 def get_domain_expiration_date(domain_name: str) -> str:
@@ -34,13 +40,14 @@ def get_domain_expiration_date(domain_name: str) -> str:
 
 def main(urls_list: list):
     for url in urls_list:
-        url_status = "alive" if is_server_responding_with_ok(url) else "dead"
+        url_status = "alive" if is_url_alive(url) else "dead"
         expiry_date = get_domain_expiration_date(url)
         print("domain {} is {}, expiry date is {}".format(url, url_status, expiry_date))
 
 
 if __name__ == '__main__':
-    if not os.path.exists(sys.argv[1]):
-        print("invalid file path {}".format(sys.argv[1]))
-    else:
-        main(load_urls4check(sys.argv[1]))
+    parser = argparse.ArgumentParser(description="check if domain urls are alive, plus provides registry expiry date")
+    parser.add_argument("--urls", dest="urls", action="store", required=True, type=load_urls4check,
+                        help="  file with list of urls")
+    args = parser.parse_args(sys.argv[1:])
+    main(args.urls)
